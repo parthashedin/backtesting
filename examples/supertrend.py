@@ -24,16 +24,22 @@ print("\nRun Started.......... : ", datetime.datetime.now())
 risk_per_trade = 100 # if stoploss gets triggers, you loss will be this, trade quantity will be calculated based on this
 supertrend_period = 7
 supertrend_multiplier=3
-candlesize = '2minute'
+candlesize = 'minute'
 
 
 
 
 api_key = "p0zhrqp68wf4qd9j"#userdata.loc[i, "api_key"]
 api_secret = "hc13yo68q7bnvivchixnjvud0q5y5fp4" #userdata.loc[i, "api_secret"]
-request_token = "q5PiOaOKLAR3O6R3BaYsa7gZt3yvo7vS" #userdata.loc[i, "request_token"]
-access_token = "HLpd5AkkDcSF6Ac6wMq3CAVaT6fQCgxS" #userdata.loc[i, "access_token"]
-public_token = "SLhnTyHDSRytgQ3TKXgb3QreniIlAdaE" #userdata.loc[i, "public_token"]
+request_token = "uyMKQKzHJJrfi8i2EIxM0yy7NbzyCE9w" #userdata.loc[i, "request_token"]
+access_token = "nwFkNPRlYd3XnBMJR7S6gu8QATHkjD3B" #userdata.loc[i, "access_token"]
+public_token = "71RzmZ71krqbREdIH4L6SdSgZlQ3L7Yp" #userdata.loc[i, "public_token"]
+
+# api_key = "p0zhrqp68wf4qd9j"#userdata.loc[i, "api_key"]
+# api_secret = "hc13yo68q7bnvivchixnjvud0q5y5fp4" #userdata.loc[i, "api_secret"]
+# request_token = "bdfb6BMvzvM2NDAWV82XcOASEAwRi4IT" #userdata.loc[i, "request_token"]
+# access_token = "Ph1mIGLGMRWdjl8bA1PygiD63LwoCOqk" #userdata.loc[i, "access_token"]
+# public_token = "ITFsPpO7tUiLftfrj3Q7zZYTPmGZ0M2J" #userdata.loc[i, "public_token"]
 kitei = KiteConnect(api_key=api_key)
 kitei.set_access_token(access_token)
 
@@ -205,6 +211,8 @@ def SuperTrend(df, period = supertrend_period, multiplier=supertrend_multiplier,
     for index, row in df.iterrows():
 
         if prev_value!=row[stx]:
+            #fl - first candle low
+            #sh - secomd candle high
             df.at[index,status]="change"
             trade_dict["fh"] = row["high"]
             trade_dict["fl"] = row["low"]
@@ -216,67 +224,119 @@ def SuperTrend(df, period = supertrend_period, multiplier=supertrend_multiplier,
             is_trade = True
             max_run_up_value = 0
             max_draw_down_value = 0
+            
 
             # print(trade_dict)
         else:
             df.at[index,status]=""
-        if is_trade:
-            if trade_dict["trend"] == "down":
-                if trade_dict["min"] > row["low"]:
-                    print(f"trigger down trade {trade_dict['min']}")
-                    df.at[index,order] = "sell"
-                    is_trade=False
-                    trade_result_check = True
-            elif trade_dict["trend"] == "up":
-                if trade_dict["max"] < row["high"]:
-                    df.at[index,order] = "buy"
-                    print(f"Trigger up trade {trade_dict['max']}")
-                    is_trade=False
-                    trade_result_check = True
+
         if trade_dict["trend"] == "down":
-            if row["high"] > trade_dict["min"]:
-                down_diff = row["high"] - trade_dict["min"]
-                df.at[index,"draw_down"] = down_diff
-                if down_diff > max_draw_down_value and not is_trade:
-                    max_draw_down_value = down_diff
+            if row["high"] - row["ST"] >= 0:
+                df.at[index,order] = "sell"
+                is_trade = False
+                st_value = row["ST"]
+            if not is_trade:
+                df.at[index,"run_up"] = st_value - row["low"]
+                df.at[index,"draw_down"] = row["high"] - st_value
+                if max_run_up_value < st_value - row["low"]:
+                    max_run_up_value = df.at[index,"draw_down"] = st_value - row["low"]
+                if max_draw_down_value < row["high"] - st_value:
+                    max_draw_down_value = df.at[index,"run_up"] = row["high"] - st_value
+
+        elif trade_dict["trend"] == "up":
+            if row["low"] - row["ST"] <= 0:
+                df.at[index,order] = "buy"
+                is_trade = False
+                st_value = row["ST"]
+            if not is_trade:
+                df.at[index,"run_up"] = row["high"] - st_value
+                df.at[index,"draw_down"] = st_value - row["low"]
+                if max_run_up_value < row["high"] - st_value:
+                    max_run_up_value = row["high"] - st_value
+                if max_draw_down_value < st_value - row["low"]:
+                    max_draw_down_value =  st_value- row["low"]
+        df.at[index,"max_run_up"] = max_run_up_value
+        df.at[index,"max_draw_down"] = max_draw_down_value
+
+        # if is_trade:
+        #     if trade_dict["trend"] == "down":
+        #         if trade_dict["min"] > row["low"]:
+        #             print(f"trigger down trade {trade_dict['min']}")
+        #             df.at[index,order] = "sell"
+        #             is_trade=False
+        #             trade_result_check = True
+        #     elif trade_dict["trend"] == "up":
+        #         if trade_dict["max"] < row["high"]:
+        #             df.at[index,order] = "buy"
+        #             print(f"Trigger up trade {trade_dict['max']}")
+        #             is_trade=False
+        #             trade_result_check = True
+        # if trade_dict["trend"] == "down":
+        #     if row["high"] > trade_dict["min"]:
+        #         down_diff = row["high"] - trade_dict["min"]
+        #         df.at[index,"draw_down"] = down_diff
+        #         if down_diff > max_draw_down_value and not is_trade:
+        #             max_draw_down_value = down_diff
         
-            if row["low"] < trade_dict["min"]:
-                run_up_diff = df.at[index,"run_up"] = trade_dict["min"] - row["low"]
-                if max_run_up_value < run_up_diff and not is_trade:
-                    max_run_up_value = run_up_diff
-        if trade_dict["trend"] == "up":
-            if row["high"] > trade_dict["max"]:
-                run_up_diff = df.at[index,"run_up"] = row["high"] - trade_dict["max"]
-                if max_run_up_value < run_up_diff and not is_trade:
-                    max_run_up_value = run_up_diff
+        #     if row["low"] < trade_dict["min"]:
+        #         run_up_diff = df.at[index,"run_up"] = trade_dict["min"] - row["low"]
+        #         if max_run_up_value < run_up_diff and not is_trade:
+        #             max_run_up_value = run_up_diff
+        # if trade_dict["trend"] == "up":
+        #     if row["high"] > trade_dict["max"]:
+        #         run_up_diff = df.at[index,"run_up"] = row["high"] - trade_dict["max"]
+        #         if max_run_up_value < run_up_diff and not is_trade:
+        #             max_run_up_value = run_up_diff
         
-            if row["low"] < trade_dict["max"]:
-               down_diff = df.at[index,"draw_down"] = trade_dict["max"] - row["low"]
-               if down_diff > max_draw_down_value and not is_trade:
-                    max_draw_down_value = down_diff
-        df.at[index,max_draw_down] = max_draw_down_value
-        df.at[index,max_run_up] = max_run_up_value
+        #     if row["low"] < trade_dict["max"]:
+        #        down_diff = df.at[index,"draw_down"] = trade_dict["max"] - row["low"]
+        #        if down_diff > max_draw_down_value and not is_trade:
+        #             max_draw_down_value = down_diff
+        # df.at[index,max_draw_down] = max_draw_down_value
+        # df.at[index,max_run_up] = max_run_up_value
 
 
 
-        if max_run_up_value < 100 <= max_draw_down_value and trade_result_check:
-            df.at[index,trade_result_loss] = "Loss"
-            trade_result_check = False
-        if max_draw_down_value < 100 <= max_run_up_value and trade_result_check:
-            df.at[index,trade_result_profit] = "Profit"
-            trade_result_check = False
+        # if max_run_up_value < 100 <= max_draw_down_value and trade_result_check:
+        #     df.at[index,trade_result_loss] = "Loss"
+        #     trade_result_check = False
+        # if max_draw_down_value < 100 <= max_run_up_value and trade_result_check:
+        #     df.at[index,trade_result_profit] = "Profit"
+        #     trade_result_check = False
         
 
         prev_value = row[stx]
 # Remove basic and final bands from the columns
-    df.drop(['basic_ub', 'basic_lb', 'final_ub', 'final_lb'], inplace=True, axis=1)
+    # df.drop(['basic_ub', 'basic_lb', 'final_ub', 'final_lb'], inplace=True, axis=1)
+    df.drop(['basic_ub', 'basic_lb'], inplace=True, axis=1)
 
     df.fillna(0, inplace=True)
     return df
 
+
 def gethistoricaldata(token):
-    for i in range(0,13):
-        enddate = datetime.datetime.today() - datetime.timedelta(i*60)
+    enddate = datetime.datetime.today() - datetime.timedelta(1)
+    startdate = enddate - datetime.timedelta(60)
+    df = pd.DataFrame(columns=['date', 'open', 'high', 'low', 'close', 'volume'])
+    try:
+        data = kitei.historical_data(token, startdate, enddate, interval=candlesize)
+        df = pd.DataFrame.from_dict(data, orient='columns', dtype=None)
+        print(2,df)
+        
+        if not df.empty:
+            df = df[['date', 'open', 'high', 'low', 'close', 'volume']]
+            df['date'] = df['date'].astype(str).str[:-6]
+            df['date'] = pd.to_datetime(df['date'])
+            df = SuperTrend(df)
+    except Exception as e:
+        print("         error in gethistoricaldata", token, e)
+    # df.to_csv("banknifty_data.csv", sep='\t')
+    df.to_excel(f'banknifty_data_19022023.xlsx', sheet_name=f'bank_nifty_today')
+    return df
+
+def gethistoricaldata_for_long(token):
+    for i in range(0,1):
+        enddate = datetime.datetime.today() - datetime.timedelta(i*1)
         startdate = enddate - datetime.timedelta(60)
         df = pd.DataFrame(columns=['date', 'open', 'high', 'low', 'close', 'volume'])
         try:
@@ -292,7 +352,7 @@ def gethistoricaldata(token):
         except Exception as e:
             print("         error in gethistoricaldata", token, e)
         # df.to_csv("banknifty_data.csv", sep='\t')
-        df.to_excel(f'banknifty_data_{i*60}.xlsx', sheet_name=f'bank_nifty_{i*60}')
+        df.to_excel(f'banknifty_data_sun_{i*60}.xlsx', sheet_name=f'bank_nifty_{i*60}')
     return df
 
 orderslist = []
